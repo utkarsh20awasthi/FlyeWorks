@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Repositories Viewer</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #search-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #search-container label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    #repos {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+    }
+
+    .repo-card {
+      width: 45%;
+      margin: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: justify;
+      background-color: #fff;
+    }
+
+    .repo-card h3 {
+      margin-top: 0;
+      text-align: left;
+      color: #0366d6;
+    }
+
+    .repo-card p {
+      margin-bottom: 0;
+    }
+
+    .tech-stack {
+      margin-top: 10px;
+    }
+
+    .pagination-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .loader {
+      display: none;
+      margin: 20px auto;
+    }
+
+    /* Center the text area */
+    #username {
+      margin: 0 auto;
+    }
+
+    /* Style for user info */
+    #user-info {
+      margin-top: 20px;
+    }
+
+    #user-photo {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>GitHub Repositories Viewer</h1>
+  <div id="search-container">
+    <label for="username">Enter GitHub Username: </label>
+    <input type="text" id="username" class="form-control" placeholder="Enter GitHub username">
+    <button class="btn btn-primary" onclick="fetchRepositories()">Fetch Repositories</button>
+  </div>
+  <div id="loader" class="loader">Loading...</div>
+  <div id="user-info" class="text-center">
+    <img id="user-photo" src="https://via.placeholder.com/150" alt="User Photo" class="rounded-circle">
+    <h3 id="user-name"></h3>
+  </div>
+  <div id="repos" class="d-flex flex-wrap justify-content-around"></div>
+  <div id="pagination" class="pagination-container"></div>
+ 
+  <div id="page-navigation" class="pagination-container"></div>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script>
+    let currentPage = 1;
+    const perPageOptions = [6, 10, 30, 50, 100];
+    let perPage = perPageOptions[0];
+
+    async function fetchRepositories() {
+      const username = document.getElementById('username').value;
+      const userApiUrl = `https://api.github.com/users/${username}`;
+      const reposApiUrl = `https://api.github.com/users/${username}/repos?per_page=${perPage}&page=${currentPage}`;
+
+      showLoader();
+
+      try {
+        const [userResponse, reposResponse] = await Promise.all([
+          fetch(userApiUrl),
+          fetch(reposApiUrl)
+        ]);
+
+        const userData = await userResponse.json();
+        const reposData = await reposResponse.json();
+
+        if (userResponse.ok && reposResponse.ok) {
+          displayUserInfo(userData);
+          displayRepositories(reposData);
+          displayPageNavigation(Math.ceil(reposData.length / perPage));
+        } else {
+          console.error(`Error fetching data: ${userResponse.statusText} - ${reposResponse.statusText}`);
+          alert(`Error fetching data: ${userResponse.statusText} - ${reposResponse.statusText}`);
+        }
+      } catch (error) {
+        console.error(`Error fetching data: ${error.message}`);
+        alert(`Error fetching data: ${error.message}`);
+      }
+
+      hideLoader();
+    }
+
+    function showLoader() {
+      $('#loader').show();
+    }
+
+    function hideLoader() {
+      $('#loader').hide();
+    }
+
+    function displayUserInfo(userInfo) {
+      const userPhoto = $('#user-photo');
+      const userName = $('#user-name');
+
+      userPhoto.attr('src', userInfo.avatar_url);
+      userName.text(userInfo.name || userInfo.login || 'User');
+    }
+
+    function displayRepositories(repositories) {
+      const reposContainer = $('#repos');
+      reposContainer.empty();
+
+      repositories.forEach(repo => {
+        const repoCard = $('<div class="repo-card"></div>');
+
+        const repoName = $(`<h3>${repo.name}</h3>`);
+        const repoDescription = $(`<p>${repo.description || 'No description available.'}</p>`);
+
+        const techStack = repo.topics.map(topic => `<button class="btn btn-info tech-stack">${topic}</button>`).join(' ');
+        const techStackDiv = $(`<div class="tech-stack">${techStack}</div>`);
+
+        const repoLink = $(`<p><a href="${repo.html_url}" target="_blank">View on GitHub</a></p>`);
+
+        repoCard.append(repoName, repoDescription, techStackDiv, repoLink);
+        reposContainer.append(repoCard);
+      });
+    }
+
+    function displayPageNavigation(totalPages) {
+      const pageNavigationContainer = $('#page-navigation');
+      pageNavigationContainer.empty();
+
+      const ul = $('<ul class="pagination"></ul>');
+
+      for (let i = 1; i <= totalPages; i++) {
+        const li = $('<li class="page-item"></li>');
+        const a = $(`<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`);
+
+        li.append(a);
+        ul.append(li);
+      }
+
+      pageNavigationContainer.append(ul);
+    }
+
+    function changePage(newPage) {
+      currentPage = newPage;
+      fetchRepositories();
+    }
+
+    fetchRepositories();
+  </script>
+</body>
+</html>
